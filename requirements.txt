@@ -1,7 +1,5 @@
 fastapi
 uvicorn
-requests
 python-multipart
-pydantic
-huggingface_hub
-reportlab   (if you generate PDFs)
+requests
+reportlab
