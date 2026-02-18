@@ -1,5 +1,6 @@
+doctr==0.4.1
+torch==2.1.0
+torchvision==0.16.1
+pillow
 fastapi
-uvicorn
-python-multipart
-requests
-reportlab
+uvicorn[standard]
