@@ -1,22 +1,17 @@
-from fastapi import FastAPI, UploadFile, File
-from doctr.models import ocr_predictor
-from PIL import Image
-import io
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from ocr.ocr import router as ocr_router
 
-app = FastAPI(title="OCR Backend")
+app = FastAPI()
 
-# Load Doctr OCR model
-predictor = ocr_predictor(pretrained=True)
+# ✅ include OCR router
+app.include_router(ocr_router)
 
-@app.post("/ocr")
-async def do_ocr(file: UploadFile = File(...)):
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents)).convert("RGB")
-    result = predictor([image])
-    # Convert result to simple text list
-    output = []
-    for page in result.pages:
-        for block in page.blocks:
-            for line in block.lines:
-                output.append(line.text)
-    return {"text": "\n".join(output)}
+# ✅ CORS for Expo / mobile
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
