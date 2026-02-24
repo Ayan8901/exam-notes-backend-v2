@@ -1,7 +1,4 @@
 fastapi
 uvicorn
-python-multipart
-pillow
-python-doctr
-torch
-torchvision
+openai
+python-dotenv
