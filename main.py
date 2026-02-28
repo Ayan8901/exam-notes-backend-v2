@@ -86,7 +86,7 @@ Text to convert:
                 json={
                     "model":       "llama-3.3-70b-versatile",
                     "messages":    [{"role": "user", "content": prompt}],
-                    "max_tokens":  1800,
+                    "max_tokens":  2048,
                     "temperature": 0.2,
                 },
             )
