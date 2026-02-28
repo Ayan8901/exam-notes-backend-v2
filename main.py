@@ -48,18 +48,18 @@ PART 1 — Generate a smart title:
 - Title should describe the MAIN TOPIC, not just copy the first words
 - Example: "Photosynthesis: Light and Dark Reactions"
 
-PART 2 — Generate comprehensive exam-ready notes:
+PART 2 — Generate concise but complete exam-ready notes:
 - Read the ENTIRE text carefully from start to finish
 - Do NOT stop after the first paragraph
 - Group related points under short section headings
 - Section heading format: ALL CAPS, no bullet, e.g. "DEFINITION" or "KEY STAGES"
 - Each bullet point starts with "• "
-- 4-6 bullets per section
-- Up to 6 sections if the text is long enough
-- Each bullet max 20 words
-- Cover ALL important facts from the ENTIRE text, not just the beginning
-- Include definitions, processes, examples, causes, effects, dates, formulas
-- Only skip truly unimportant filler sentences
+- 3-4 bullets per section (concise, no repetition)
+- Up to 4 sections maximum
+- Each bullet max 15 words — be sharp and concise
+- Cover the MOST IMPORTANT facts from the entire text
+- Prioritize: definitions, key processes, causes/effects, formulas, dates
+- Skip minor details and examples unless critical
 - If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
 
 Respond in this exact format:
@@ -86,7 +86,7 @@ Text to convert:
                 json={
                     "model":       "llama-3.3-70b-versatile",
                     "messages":    [{"role": "user", "content": prompt}],
-                    "max_tokens":  2048,
+                    "max_tokens":  1800,
                     "temperature": 0.2,
                 },
             )
