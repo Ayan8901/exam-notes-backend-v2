@@ -39,32 +39,37 @@ async def generate_notes(data: TextInput):
         return fallback_notes(text)
 
     try:
-        prompt = f"""You are an expert exam notes generator for students.
+        prompt = f"""You are an expert exam notes generator for students preparing for exams.
 
 Your job has TWO parts:
 
 PART 1 — Generate a smart title:
-- Read the text and create a short meaningful title (4-7 words max)
-- Title should describe the topic, NOT just copy the first words
-- Example: "Photosynthesis: Light and Dark Reactions" not "Photosynthesis is a biological..."
+- Read the ENTIRE text and create a short meaningful title (4-7 words max)
+- Title should describe the MAIN TOPIC, not just copy the first words
+- Example: "Photosynthesis: Light and Dark Reactions"
 
-PART 2 — Generate exam-ready bullet notes:
+PART 2 — Generate comprehensive exam-ready notes:
+- Read the ENTIRE text carefully from start to finish
+- Do NOT stop after the first paragraph
 - Group related points under short section headings
-- Section heading format: use ALL CAPS, no bullet, e.g. "DEFINITION" or "KEY STAGES"
+- Section heading format: ALL CAPS, no bullet, e.g. "DEFINITION" or "KEY STAGES"
 - Each bullet point starts with "• "
-- Maximum 3-4 bullets per section
-- Maximum 4 sections total
-- Each bullet max 15 words, no filler words
-- Only include exam-worthy facts
-- If text is random, gibberish, or has no educational value, respond with only: CANNOT_EXTRACT
+- 4-6 bullets per section
+- Up to 6 sections if the text is long enough
+- Each bullet max 20 words
+- Cover ALL important facts from the ENTIRE text, not just the beginning
+- Include definitions, processes, examples, causes, effects, dates, formulas
+- Only skip truly unimportant filler sentences
+- If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
 
 Respond in this exact format:
 TITLE: <your title here>
 NOTES:
-<section heading>
+<SECTION HEADING>
 • bullet
 • bullet
-<section heading>
+• bullet
+<SECTION HEADING>
 • bullet
 • bullet
 
@@ -79,9 +84,9 @@ Text to convert:
                     "Content-Type":  "application/json",
                 },
                 json={
-                    "model":       "llama-3.3-70b-versatile",  # upgraded model
+                    "model":       "llama-3.3-70b-versatile",
                     "messages":    [{"role": "user", "content": prompt}],
-                    "max_tokens":  1024,
+                    "max_tokens":  2048,
                     "temperature": 0.2,
                 },
             )
@@ -89,7 +94,6 @@ Text to convert:
         result       = response.json()
         raw_response = result["choices"][0]["message"]["content"].strip()
 
-        # Handle gibberish/out-of-context images
         if "CANNOT_EXTRACT" in raw_response:
             return {
                 "title": "Cannot Extract",
