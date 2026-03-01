@@ -41,8 +41,8 @@ async def generate_notes(data: TextInput):
     try:
         # ✅ Scale sections and bullets based on input size
         word_count   = len(text.split())
-        max_sections = 4 if word_count < 300 else 6 if word_count < 600 else 8
-        bullets_per  = "3-4" if word_count < 300 else "4-5"
+        max_sections = 5 if word_count < 300 else 7 if word_count < 600 else 10
+        bullets_per  = "4-5" if word_count < 300 else "5-6"
 
         prompt = f"""You are an expert exam notes generator for students preparing for exams.
 
@@ -61,9 +61,10 @@ PART 2 — Generate concise but complete exam-ready notes:
 - Each bullet point starts with "• "
 - {bullets_per} bullets per section (concise, no repetition)
 - Up to {max_sections} sections maximum
-- Each bullet max 15 words — be sharp and concise
+- Each bullet max 20 words — be complete, never cut definitions short
 - Cover the MOST IMPORTANT facts from the entire text
 - Prioritize: definitions, key processes, causes/effects, formulas, dates
+- Always write full definitions — never truncate mid-sentence
 - Skip minor details and examples unless critical
 - If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
 
