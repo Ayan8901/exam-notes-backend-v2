@@ -19,7 +19,8 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
 class TextInput(BaseModel):
-    text: str
+    text:         str
+    systemPrompt: str | None = None
 
 @app.get("/")
 def root():
@@ -31,15 +32,15 @@ async def generate_notes(data: TextInput):
 
     if not text or len(text) < 30:
         return {
-            "title": "Cannot Extract",
+            "title":   "Cannot Extract",
             "content": "• Could not extract meaningful text.\n• Try a clearer image with visible text."
         }
 
     if not GROQ_API_KEY:
+        print("ERROR: GROQ_API_KEY is not set in environment variables")
         return fallback_notes(text)
 
     try:
-        # ✅ Scale sections and bullets based on input size
         word_count   = len(text.split())
         max_sections = 5 if word_count < 300 else 7 if word_count < 600 else 10
         bullets_per  = "4-5" if word_count < 300 else "5-6"
@@ -97,12 +98,23 @@ Text to convert:
                 },
             )
 
-        result       = response.json()
+        result = response.json()
+
+        # ✅ FIX: check for Groq API errors before accessing 'choices'
+        if "error" in result:
+            error_msg = result["error"].get("message", "Unknown Groq error")
+            print(f"Groq API error: {error_msg}")
+            return fallback_notes(text)
+
+        if not result.get("choices"):
+            print(f"Groq empty choices. Full response: {result}")
+            return fallback_notes(text)
+
         raw_response = result["choices"][0]["message"]["content"].strip()
 
         if "CANNOT_EXTRACT" in raw_response:
             return {
-                "title": "Cannot Extract",
+                "title":   "Cannot Extract",
                 "content": "• Could not find meaningful educational content.\n• Try a clearer textbook image or paste text directly."
             }
 
