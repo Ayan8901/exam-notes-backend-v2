@@ -59,20 +59,22 @@ PART 2 — Generate expert exam-ready notes:
 - Do NOT just copy headings or phrases from the book as bullet points
 - Each bullet must be a COMPLETE ANSWER — not a topic name or heading
 - BAD bullet: "Calculating Variance and Standard Deviation"
-- GOOD bullet: "Variance measures how far data values spread from mean; calculated as average of squared differences"
+- GOOD bullet: "Variance measures how far values spread from mean; calculated as average of squared differences"
 - BAD bullet: "Interpreting Results"
 - GOOD bullet: "Higher variance = more spread out data; lower variance = data clustered close to mean"
-- Combine what the book says WITH your own expert knowledge to make each bullet a complete exam answer
-- Add key facts, formulas, definitions the student needs even if not fully explained in the text
+- Combine what the book says WITH your own expert knowledge for complete exam answers
+- Add key facts, formulas, definitions even if not fully explained in the text
+- For math topics: write formulas using plain text only — e.g. "a^2 + b^2 = c^2" NOT "$a^2 + b^2 = c^2$"
+- NEVER use LaTeX syntax — no $ signs, no \\frac, no \\sqrt, no \\cdot, no backslashes
+- Write math naturally: use ^ for powers, / for fractions, sqrt() for roots
 - Group related points under short section headings
-- Section heading format: ALL CAPS, no bullet, e.g. "DEFINITION" or "KEY FORMULA"
+- Section heading format: ALL CAPS, no bullet, e.g. "FORMULA" or "KEY THEOREM"
 - Each bullet point starts with "• "
 - {bullets_per} bullets per section (no repetition)
 - Up to {max_sections} sections maximum
 - Each bullet max 25 words — complete and self-contained
 - Prioritize: definitions, formulas, causes/effects, processes, key facts for exams
 - Always write full definitions — never truncate mid-sentence
-- Skip minor details and examples unless critical
 - If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
 
 Respond in this exact format:
