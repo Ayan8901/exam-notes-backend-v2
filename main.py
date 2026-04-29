@@ -54,17 +54,23 @@ PART 1 — Generate a smart title:
 - Title should describe the MAIN TOPIC, not just copy the first words
 - Example: "Photosynthesis: Light and Dark Reactions"
 
-PART 2 — Generate concise but complete exam-ready notes:
+PART 2 — Generate expert exam-ready notes:
 - Read the ENTIRE text carefully from start to finish
-- Do NOT stop after the first paragraph
+- Do NOT just copy headings or phrases from the book as bullet points
+- Each bullet must be a COMPLETE ANSWER — not a topic name or heading
+- BAD bullet: "Calculating Variance and Standard Deviation"
+- GOOD bullet: "Variance measures how far data values spread from mean; calculated as average of squared differences"
+- BAD bullet: "Interpreting Results"
+- GOOD bullet: "Higher variance = more spread out data; lower variance = data clustered close to mean"
+- Combine what the book says WITH your own expert knowledge to make each bullet a complete exam answer
+- Add key facts, formulas, definitions the student needs even if not fully explained in the text
 - Group related points under short section headings
-- Section heading format: ALL CAPS, no bullet, e.g. "DEFINITION" or "KEY STAGES"
+- Section heading format: ALL CAPS, no bullet, e.g. "DEFINITION" or "KEY FORMULA"
 - Each bullet point starts with "• "
-- {bullets_per} bullets per section (concise, no repetition)
+- {bullets_per} bullets per section (no repetition)
 - Up to {max_sections} sections maximum
-- Each bullet max 20 words — be complete, never cut definitions short
-- Cover the MOST IMPORTANT facts from the entire text
-- Prioritize: definitions, key processes, causes/effects, formulas, dates
+- Each bullet max 25 words — complete and self-contained
+- Prioritize: definitions, formulas, causes/effects, processes, key facts for exams
 - Always write full definitions — never truncate mid-sentence
 - Skip minor details and examples unless critical
 - If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
