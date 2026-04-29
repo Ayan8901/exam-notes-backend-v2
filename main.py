@@ -83,7 +83,7 @@ NOTES:
 Text to convert:
 {text}"""
 
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=45) as client:
             response = await client.post(
                 GROQ_URL,
                 headers={
@@ -100,7 +100,6 @@ Text to convert:
 
         result = response.json()
 
-        # ✅ FIX: check for Groq API errors before accessing 'choices'
         if "error" in result:
             error_msg = result["error"].get("message", "Unknown Groq error")
             print(f"Groq API error: {error_msg}")
