@@ -23,6 +23,35 @@ class TextInput(BaseModel):
     text:         str
     systemPrompt: str | None = None
 
+
+def extract_model_output_text(result: dict) -> str:
+    collected = []
+    steps = result.get("steps", [])
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        if step.get("type") == "model_output":
+            for part in step.get("content", []):
+                if isinstance(part, dict) and part.get("type") == "text":
+                    collected.append(part.get("text", ""))
+    if collected:
+        return "".join(collected)
+
+    if result.get("output_text"):
+        return result["output_text"]
+
+    output = result.get("output", [])
+    for item in output:
+        if isinstance(item, dict):
+            if "text" in item:
+                collected.append(item["text"])
+            elif "content" in item:
+                for part in item.get("content", []):
+                    if isinstance(part, dict) and "text" in part:
+                        collected.append(part["text"])
+    return "".join(collected)
+
+
 @app.get("/")
 def root():
     return {"status": "Exam Notes backend running"}
@@ -123,24 +152,10 @@ Text to convert:
             print(f"Gemini API error: {error_msg}")
             return fallback_notes(text)
 
-        raw_response = result.get("output_text", "")
-        if not raw_response:
-            output = result.get("output", [])
-            collected = []
-            for item in output:
-                if isinstance(item, dict):
-                    if "text" in item:
-                        collected.append(item["text"])
-                    elif "content" in item:
-                        for part in item.get("content", []):
-                            if isinstance(part, dict) and "text" in part:
-                                collected.append(part["text"])
-            raw_response = "".join(collected)
-
-        raw_response = raw_response.strip()
+        raw_response = extract_model_output_text(result).strip()
 
         if not raw_response:
-            print(f"Gemini empty text. Full response: {result}")
+            print(f"Gemini empty text. Full response keys: {list(result.keys())}")
             return fallback_notes(text)
 
         if "CANNOT_EXTRACT" in raw_response:
