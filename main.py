@@ -39,7 +39,6 @@ async def generate_notes(data: TextInput):
     log(f"[NOTES] received text_len={len(text)}")
 
     if not text or len(text) < 30:
-        log("[NOTES] text too short, returning Cannot Extract")
         return {
             "title":   "Cannot Extract",
             "content": "• Could not extract meaningful text.\n• Try a clearer image with visible text."
@@ -100,7 +99,7 @@ NOTES:
 Text to convert:
 {text}"""
 
-        async with httpx.AsyncClient(timeout=45) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
                 GROQ_URL,
                 headers={
@@ -110,8 +109,9 @@ Text to convert:
                 json={
                     "model": "openai/gpt-oss-120b",
                     "messages":    [{"role": "user", "content": prompt}],
-                    "max_tokens":  2048,
+                    "max_tokens":  6000,
                     "temperature": 0.2,
+                    "reasoning_effort": "low",
                 },
             )
 
@@ -126,30 +126,64 @@ Text to convert:
         if "error" in result:
             error_msg = result["error"].get("message", "Unknown Groq error")
             log(f"[NOTES] Groq API error: {error_msg}")
-            return fallback_notes(text)
+            # retry once without reasoning_effort if that param is unsupported
+            if "reasoning_effort" in error_msg:
+                log("[NOTES] retrying without reasoning_effort param")
+                async with httpx.AsyncClient(timeout=60) as client:
+                    response = await client.post(
+                        GROQ_URL,
+                        headers={
+                            "Authorization": f"Bearer {GROQ_API_KEY}",
+                            "Content-Type":  "application/json",
+                        },
+                        json={
+                            "model": "openai/gpt-oss-120b",
+                            "messages":    [{"role": "user", "content": prompt}],
+                            "max_tokens":  6000,
+                            "temperature": 0.2,
+                        },
+                    )
+                result = response.json()
+                if "error" in result:
+                    log(f"[NOTES] Retry also failed: {result['error']}")
+                    return fallback_notes(text)
+            else:
+                return fallback_notes(text)
 
         if not result.get("choices"):
             log(f"[NOTES] Groq empty choices. Full response: {result}")
             return fallback_notes(text)
 
-        raw_response = result["choices"][0]["message"]["content"].strip()
-        log(f"[NOTES] raw_response_len={len(raw_response)} preview={raw_response[:200]!r}")
+        choice = result["choices"][0]
+        finish_reason = choice.get("finish_reason")
+        usage = result.get("usage", {})
+        message = choice.get("message", {})
+        raw_response = (message.get("content") or "").strip()
+        reasoning_field = message.get("reasoning", "") or ""
+
+        log(f"[NOTES] finish_reason={finish_reason} usage={usage} "
+            f"content_len={len(raw_response)} reasoning_len={len(reasoning_field)}")
+
+        if not raw_response and reasoning_field:
+            log("[NOTES] content empty, using reasoning field as fallback source")
+            raw_response = reasoning_field.strip()
+
+        if not raw_response:
+            log(f"[NOTES] Truly empty response. finish_reason={finish_reason}")
+            return fallback_notes(text)
 
         if "CANNOT_EXTRACT" in raw_response:
-            log("[NOTES] Model returned CANNOT_EXTRACT")
             return {
                 "title":   "Cannot Extract",
                 "content": "• Could not find meaningful educational content.\n• Try a clearer textbook image or paste text directly."
             }
 
-        # Parse title
         title = "Untitled Note"
         if "TITLE:" in raw_response:
             title_line = raw_response.split("TITLE:")[1].split("\n")[0].strip()
             if title_line:
                 title = title_line
 
-        # Parse notes content
         content = raw_response
         if "NOTES:" in raw_response:
             content = raw_response.split("NOTES:")[1].strip()
