@@ -129,6 +129,7 @@ Text to convert:
             "generation_config": {
                 "temperature": 0.2,
                 "max_output_tokens": 2048,
+                "thinking_level": "low",
             },
         }
 
