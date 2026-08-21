@@ -16,8 +16,8 @@ app.add_middleware(
 )
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_MODEL   = "gemini-2.5-flash"
-GEMINI_URL     = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+GEMINI_MODEL   = "gemini-3.6-flash"
+GEMINI_URL     = "https://generativelanguage.googleapis.com/v1beta/interactions"
 
 class TextInput(BaseModel):
     text:         str
@@ -93,15 +93,13 @@ Text to convert:
 {text}"""
 
         payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}],
-                }
+            "model": GEMINI_MODEL,
+            "input": [
+                {"type": "text", "text": prompt},
             ],
-            "generationConfig": {
+            "generation_config": {
                 "temperature": 0.2,
-                "maxOutputTokens": 2048,
+                "max_output_tokens": 2048,
             },
         }
 
@@ -113,20 +111,33 @@ Text to convert:
         async with httpx.AsyncClient(timeout=45) as client:
             response = await client.post(GEMINI_URL, headers=headers, json=payload)
 
-        result = response.json()
+        try:
+            result = response.json()
+        except Exception:
+            print(f"Gemini non-JSON response (status {response.status_code}): {response.text[:300]}")
+            return fallback_notes(text)
 
-        if "error" in result:
-            error_msg = result["error"].get("message", "Unknown Gemini error")
+        if response.status_code != 200 or (isinstance(result, dict) and "error" in result):
+            error_obj = result.get("error", {}) if isinstance(result, dict) else {}
+            error_msg = error_obj.get("message", f"Gemini error (status {response.status_code}): {result}")
             print(f"Gemini API error: {error_msg}")
             return fallback_notes(text)
 
-        candidates = result.get("candidates", [])
-        if not candidates:
-            print(f"Gemini empty candidates. Full response: {result}")
-            return fallback_notes(text)
+        raw_response = result.get("output_text", "")
+        if not raw_response:
+            output = result.get("output", [])
+            collected = []
+            for item in output:
+                if isinstance(item, dict):
+                    if "text" in item:
+                        collected.append(item["text"])
+                    elif "content" in item:
+                        for part in item.get("content", []):
+                            if isinstance(part, dict) and "text" in part:
+                                collected.append(part["text"])
+            raw_response = "".join(collected)
 
-        parts = candidates[0].get("content", {}).get("parts", [])
-        raw_response = "".join(p.get("text", "") for p in parts).strip()
+        raw_response = raw_response.strip()
 
         if not raw_response:
             print(f"Gemini empty text. Full response: {result}")
