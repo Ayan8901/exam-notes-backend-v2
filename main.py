@@ -15,42 +15,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_MODEL   = "gemini-3.6-flash"
-GEMINI_URL     = "https://generativelanguage.googleapis.com/v1beta/interactions"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
 class TextInput(BaseModel):
     text:         str
     systemPrompt: str | None = None
-
-
-def extract_model_output_text(result: dict) -> str:
-    collected = []
-    steps = result.get("steps", [])
-    for step in steps:
-        if not isinstance(step, dict):
-            continue
-        if step.get("type") == "model_output":
-            for part in step.get("content", []):
-                if isinstance(part, dict) and part.get("type") == "text":
-                    collected.append(part.get("text", ""))
-    if collected:
-        return "".join(collected)
-
-    if result.get("output_text"):
-        return result["output_text"]
-
-    output = result.get("output", [])
-    for item in output:
-        if isinstance(item, dict):
-            if "text" in item:
-                collected.append(item["text"])
-            elif "content" in item:
-                for part in item.get("content", []):
-                    if isinstance(part, dict) and "text" in part:
-                        collected.append(part["text"])
-    return "".join(collected)
-
 
 @app.get("/")
 def root():
@@ -66,8 +36,8 @@ async def generate_notes(data: TextInput):
             "content": "• Could not extract meaningful text.\n• Try a clearer image with visible text."
         }
 
-    if not GEMINI_API_KEY:
-        print("ERROR: GEMINI_API_KEY is not set in environment variables")
+    if not GROQ_API_KEY:
+        print("ERROR: GROQ_API_KEY is not set in environment variables")
         return fallback_notes(text)
 
     try:
@@ -121,43 +91,33 @@ NOTES:
 Text to convert:
 {text}"""
 
-        payload = {
-            "model": GEMINI_MODEL,
-            "input": [
-                {"type": "text", "text": prompt},
-            ],
-            "generation_config": {
-                "temperature": 0.2,
-                "max_output_tokens": 2048,
-                "thinking_level": "low",
-            },
-        }
-
-        headers = {
-            "x-goog-api-key": GEMINI_API_KEY,
-            "Content-Type": "application/json",
-        }
-
         async with httpx.AsyncClient(timeout=45) as client:
-            response = await client.post(GEMINI_URL, headers=headers, json=payload)
+            response = await client.post(
+                GROQ_URL,
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type":  "application/json",
+                },
+                json={
+                    "model": "openai/gpt-oss-120b",
+                    "messages":    [{"role": "user", "content": prompt}],
+                    "max_tokens":  2048,
+                    "temperature": 0.2,
+                },
+            )
 
-        try:
-            result = response.json()
-        except Exception:
-            print(f"Gemini non-JSON response (status {response.status_code}): {response.text[:300]}")
+        result = response.json()
+
+        if "error" in result:
+            error_msg = result["error"].get("message", "Unknown Groq error")
+            print(f"Groq API error: {error_msg}")
             return fallback_notes(text)
 
-        if response.status_code != 200 or (isinstance(result, dict) and "error" in result):
-            error_obj = result.get("error", {}) if isinstance(result, dict) else {}
-            error_msg = error_obj.get("message", f"Gemini error (status {response.status_code}): {result}")
-            print(f"Gemini API error: {error_msg}")
+        if not result.get("choices"):
+            print(f"Groq empty choices. Full response: {result}")
             return fallback_notes(text)
 
-        raw_response = extract_model_output_text(result).strip()
-
-        if not raw_response:
-            print(f"Gemini empty text. Full response keys: {list(result.keys())}")
-            return fallback_notes(text)
+        raw_response = result["choices"][0]["message"]["content"].strip()
 
         if "CANNOT_EXTRACT" in raw_response:
             return {
@@ -180,7 +140,7 @@ Text to convert:
         return {"title": title, "content": content}
 
     except Exception as e:
-        print(f"Gemini error: {e}")
+        print(f"Groq error: {e}")
         return fallback_notes(text)
 
 
