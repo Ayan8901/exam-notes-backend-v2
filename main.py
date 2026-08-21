@@ -48,6 +48,13 @@ async def generate_notes(data: TextInput):
         log("[NOTES] GROQ_API_KEY missing")
         return fallback_notes(text)
 
+    # Cap input text length to keep total tokens (prompt + input + output)
+    # safely under Groq's free-tier 8000 TPM ceiling for this model.
+    MAX_INPUT_CHARS = 9000
+    if len(text) > MAX_INPUT_CHARS:
+        log(f"[NOTES] truncating input from {len(text)} to {MAX_INPUT_CHARS} chars")
+        text = text[:MAX_INPUT_CHARS]
+
     try:
         word_count   = len(text.split())
         max_sections = 5 if word_count < 300 else 7 if word_count < 600 else 10
@@ -99,7 +106,7 @@ NOTES:
 Text to convert:
 {text}"""
 
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=45) as client:
             response = await client.post(
                 GROQ_URL,
                 headers={
@@ -109,7 +116,10 @@ Text to convert:
                 json={
                     "model": "openai/gpt-oss-120b",
                     "messages":    [{"role": "user", "content": prompt}],
-                    "max_tokens":  6000,
+                    # Tuned to comfortably cover real completions (seen:
+                    # 448-860 completion tokens) while staying well under
+                    # Groq free tier's 8000 TPM shared budget per request.
+                    "max_tokens":  2300,
                     "temperature": 0.2,
                     "reasoning_effort": "low",
                 },
@@ -126,10 +136,9 @@ Text to convert:
         if "error" in result:
             error_msg = result["error"].get("message", "Unknown Groq error")
             log(f"[NOTES] Groq API error: {error_msg}")
-            # retry once without reasoning_effort if that param is unsupported
             if "reasoning_effort" in error_msg:
                 log("[NOTES] retrying without reasoning_effort param")
-                async with httpx.AsyncClient(timeout=60) as client:
+                async with httpx.AsyncClient(timeout=45) as client:
                     response = await client.post(
                         GROQ_URL,
                         headers={
@@ -139,7 +148,7 @@ Text to convert:
                         json={
                             "model": "openai/gpt-oss-120b",
                             "messages":    [{"role": "user", "content": prompt}],
-                            "max_tokens":  6000,
+                            "max_tokens":  2300,
                             "temperature": 0.2,
                         },
                     )
@@ -165,7 +174,6 @@ Text to convert:
             f"content_len={len(raw_response)} reasoning_len={len(reasoning_field)}")
 
         if not raw_response and reasoning_field:
-            log("[NOTES] content empty, using reasoning field as fallback source")
             raw_response = reasoning_field.strip()
 
         if not raw_response:
