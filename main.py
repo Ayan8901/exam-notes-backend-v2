@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import re
+import sys
 import httpx
 
 app = FastAPI()
@@ -18,6 +19,12 @@ app.add_middleware(
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
+
+def log(msg):
+    print(msg, flush=True)
+    sys.stdout.flush()
+
+
 class TextInput(BaseModel):
     text:         str
     systemPrompt: str | None = None
@@ -29,15 +36,17 @@ def root():
 @app.post("/api/generate-notes-from-text")
 async def generate_notes(data: TextInput):
     text = data.text.strip()
+    log(f"[NOTES] received text_len={len(text)}")
 
     if not text or len(text) < 30:
+        log("[NOTES] text too short, returning Cannot Extract")
         return {
             "title":   "Cannot Extract",
             "content": "• Could not extract meaningful text.\n• Try a clearer image with visible text."
         }
 
     if not GROQ_API_KEY:
-        print("ERROR: GROQ_API_KEY is not set in environment variables")
+        log("[NOTES] GROQ_API_KEY missing")
         return fallback_notes(text)
 
     try:
@@ -106,20 +115,28 @@ Text to convert:
                 },
             )
 
-        result = response.json()
+        log(f"[NOTES] Groq status={response.status_code}")
+
+        try:
+            result = response.json()
+        except Exception:
+            log(f"[NOTES] Non-JSON response: {response.text[:500]}")
+            return fallback_notes(text)
 
         if "error" in result:
             error_msg = result["error"].get("message", "Unknown Groq error")
-            print(f"Groq API error: {error_msg}")
+            log(f"[NOTES] Groq API error: {error_msg}")
             return fallback_notes(text)
 
         if not result.get("choices"):
-            print(f"Groq empty choices. Full response: {result}")
+            log(f"[NOTES] Groq empty choices. Full response: {result}")
             return fallback_notes(text)
 
         raw_response = result["choices"][0]["message"]["content"].strip()
+        log(f"[NOTES] raw_response_len={len(raw_response)} preview={raw_response[:200]!r}")
 
         if "CANNOT_EXTRACT" in raw_response:
+            log("[NOTES] Model returned CANNOT_EXTRACT")
             return {
                 "title":   "Cannot Extract",
                 "content": "• Could not find meaningful educational content.\n• Try a clearer textbook image or paste text directly."
@@ -137,14 +154,16 @@ Text to convert:
         if "NOTES:" in raw_response:
             content = raw_response.split("NOTES:")[1].strip()
 
+        log(f"[NOTES] Success. title={title!r} content_len={len(content)}")
         return {"title": title, "content": content}
 
     except Exception as e:
-        print(f"Groq error: {e}")
+        log(f"[NOTES EXCEPTION] {type(e).__name__}: {e}")
         return fallback_notes(text)
 
 
 def fallback_notes(text: str) -> dict:
+    log("[NOTES] Using fallback_notes()")
     words     = text.split()
     title     = " ".join(words[:6]) + ("..." if len(words) > 6 else "")
     sentences = re.split(r'(?<=[.!?])\s+', text)
