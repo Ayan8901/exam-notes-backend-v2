@@ -55,7 +55,6 @@ async def generate_notes(data: TextInput):
 
     try:
         word_count   = len(text.split())
-        # Reduced ~25%: fewer sections and fewer bullets per section than before.
         max_sections = 4 if word_count < 300 else 5 if word_count < 600 else 7
         bullets_per  = "3-4" if word_count < 300 else "4-5"
 
@@ -73,7 +72,7 @@ PART 2 — Generate CONCISE expert exam-ready notes:
 - Do NOT just copy headings or phrases from the book as bullet points
 - Each bullet must be a COMPLETE ANSWER — not a topic name or heading
 - BAD bullet: "Calculating Variance and Standard Deviation"
-- GOOD bullet: "Variance measures how far values spread from mean; calculated as average of squared differences"
+- GOOD bullet: "Variance measures spread from the mean; average of squared differences"
 - Combine what the book says WITH your own expert knowledge for complete exam answers
 - Be concise: only the MOST important facts, formulas, definitions - skip minor details
 - For math topics: write formulas using plain text only — e.g. "a^2 + b^2 = c^2" NOT "$a^2 + b^2 = c^2$"
@@ -84,9 +83,12 @@ PART 2 — Generate CONCISE expert exam-ready notes:
 - Each bullet point starts with "• "
 - {bullets_per} bullets per section MAXIMUM (no repetition, be selective)
 - Up to {max_sections} sections MAXIMUM
-- Each bullet max 18 words — complete and self-contained, but tight
+- STRICT LENGTH RULE: each bullet must be 10-14 words, NEVER more than 14
+- Write each bullet so it reads as a short, complete, punchy sentence —
+  avoid trailing filler words or clauses that spill onto an extra line
+- Do not pad bullets to sound formal — shorter and clearer is always better
 - Prioritize ONLY: core definitions, key formulas, most important facts for exams
-- Always write full definitions — never truncate mid-sentence
+- Always write full definitions — never truncate mid-sentence, but keep them tight
 - If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
 
 Respond in this exact format:
@@ -112,7 +114,7 @@ Text to convert:
                 json={
                     "model": "openai/gpt-oss-120b",
                     "messages":    [{"role": "user", "content": prompt}],
-                    "max_tokens":  1800,
+                    "max_tokens":  1600,
                     "temperature": 0.2,
                     "reasoning_effort": "low",
                 },
@@ -141,7 +143,7 @@ Text to convert:
                         json={
                             "model": "openai/gpt-oss-120b",
                             "messages":    [{"role": "user", "content": prompt}],
-                            "max_tokens":  1800,
+                            "max_tokens":  1600,
                             "temperature": 0.2,
                         },
                     )
