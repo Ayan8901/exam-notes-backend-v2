@@ -83,7 +83,7 @@ PART 2 — Generate CONCISE expert exam-ready notes:
 - Each bullet point starts with "• "
 - {bullets_per} bullets per section MAXIMUM (no repetition, be selective)
 - Up to {max_sections} sections MAXIMUM
-- STRICT LENGTH RULE: each bullet must be 10-14 words, NEVER more than 14
+- STRICT LENGTH RULE: each bullet must be 9-12 words, NEVER more than 12
 - Write each bullet so it reads as a short, complete, punchy sentence —
   avoid trailing filler words or clauses that spill onto an extra line
 - Do not pad bullets to sound formal — shorter and clearer is always better
