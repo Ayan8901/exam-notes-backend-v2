@@ -82,8 +82,12 @@ PART 2 — Generate CONCISE expert exam-ready notes:
 - Section heading format: ALL CAPS, no bullet, e.g. "FORMULA" or "KEY THEOREM"
 - Each bullet point starts with "• "
 - {bullets_per} bullets per section MAXIMUM (no repetition, be selective)
-- Up to {max_sections} sections MAXIMUM
-- STRICT LENGTH RULE: each bullet must be 9-12 words, NEVER more than 12
+- Aim for AT LEAST 4 sections when the text has enough distinct topics to support it, up to {max_sections} MAXIMUM
+- Do not force 4 sections on very short or single-topic text — only split into more sections if there is genuinely enough distinct content
+- STRICT LENGTH RULE: each bullet must be 9-13 words, NEVER more than 13
+- CRITICAL: every bullet must be a COMPLETE sentence/thought — NEVER cut off mid-word or mid-phrase
+- If a fact needs more than 13 words to complete, shorten the wording instead of cutting it off — an unfinished bullet is worse than a slightly denser one
+- Do not start a bullet or section you cannot finish within the remaining space — finish EVERY bullet and EVERY section you begin, never leave a trailing incomplete line
 - Write each bullet so it reads as a short, complete, punchy sentence —
   avoid trailing filler words or clauses that spill onto an extra line
 - Do not pad bullets to sound formal — shorter and clearer is always better
@@ -114,7 +118,7 @@ Text to convert:
                 json={
                     "model": "openai/gpt-oss-120b",
                     "messages":    [{"role": "user", "content": prompt}],
-                    "max_tokens":  1600,
+                    "max_tokens":  2200,
                     "temperature": 0.2,
                     "reasoning_effort": "low",
                 },
@@ -143,7 +147,7 @@ Text to convert:
                         json={
                             "model": "openai/gpt-oss-120b",
                             "messages":    [{"role": "user", "content": prompt}],
-                            "max_tokens":  1600,
+                            "max_tokens":  2200,
                             "temperature": 0.2,
                         },
                     )
@@ -168,6 +172,9 @@ Text to convert:
         log(f"[NOTES] finish_reason={finish_reason} usage={usage} "
             f"content_len={len(raw_response)} reasoning_len={len(reasoning_field)}")
 
+        if finish_reason == "length":
+            log("[NOTES] WARNING: response was truncated by max_tokens limit")
+
         if not raw_response and reasoning_field:
             raw_response = reasoning_field.strip()
 
@@ -191,12 +198,41 @@ Text to convert:
         if "NOTES:" in raw_response:
             content = raw_response.split("NOTES:")[1].strip()
 
+        content = drop_trailing_incomplete_bullet(content, finish_reason)
+
         log(f"[NOTES] Success. title={title!r} content_len={len(content)}")
         return {"title": title, "content": content}
 
     except Exception as e:
         log(f"[NOTES EXCEPTION] {type(e).__name__}: {e}")
         return fallback_notes(text)
+
+
+def drop_trailing_incomplete_bullet(content: str, finish_reason: str) -> str:
+    """
+    If the Groq response was cut off by the max_tokens limit, the last
+    line (and possibly a dangling section heading with zero bullets
+    under it) is often incomplete. Drop both so the user never sees a
+    half-written bullet or an empty trailing heading.
+    """
+    if finish_reason != "length":
+        return content
+    lines_ = content.rstrip("\n").split("\n")
+    if not lines_:
+        return content
+    last = lines_[-1].strip()
+    ends_clean = last.endswith((".", ";", ":", "!", "?"))
+    if not ends_clean:
+        log(f"[NOTES] Dropping likely-truncated trailing line: {last!r}")
+        lines_ = lines_[:-1]
+    while lines_:
+        candidate = lines_[-1].strip()
+        if candidate and not candidate.startswith("•"):
+            log(f"[NOTES] Dropping dangling empty heading: {candidate!r}")
+            lines_ = lines_[:-1]
+        else:
+            break
+    return "\n".join(lines_).rstrip()
 
 
 def fallback_notes(text: str) -> dict:
