@@ -176,10 +176,26 @@ Text to convert:
             log("[NOTES] WARNING: response was truncated by max_tokens limit")
 
         if not raw_response and reasoning_field:
-            raw_response = reasoning_field.strip()
+            # Only trust the reasoning field as a fallback if it actually
+            # contains the expected TITLE:/NOTES: structure. If reasoning
+            # ran away and consumed the whole token budget, the reasoning
+            # field is raw unstructured thinking -- never show that to
+            # the user as if it were finished notes.
+            if "TITLE:" in reasoning_field and "NOTES:" in reasoning_field:
+                raw_response = reasoning_field.strip()
+            else:
+                log(f"[NOTES] Reasoning field lacks TITLE:/NOTES: structure "
+                    f"(finish_reason={finish_reason}, reasoning_len={len(reasoning_field)}). "
+                    f"Treating as failed generation, using fallback_notes().")
+                return fallback_notes(text)
 
         if not raw_response:
             log(f"[NOTES] Truly empty response. finish_reason={finish_reason}")
+            return fallback_notes(text)
+
+        if finish_reason == "length" and len(raw_response) < 50:
+            log(f"[NOTES] Response too short after truncation "
+                f"(len={len(raw_response)}). Using fallback_notes().")
             return fallback_notes(text)
 
         if "CANNOT_EXTRACT" in raw_response:
@@ -199,6 +215,11 @@ Text to convert:
             content = raw_response.split("NOTES:")[1].strip()
 
         content = drop_trailing_incomplete_bullet(content, finish_reason)
+
+        if title == "Untitled Note" or not content.strip():
+            log(f"[NOTES] Malformed output despite passing earlier checks "
+                f"(title={title!r}, content_len={len(content)}). Using fallback_notes().")
+            return fallback_notes(text)
 
         log(f"[NOTES] Success. title={title!r} content_len={len(content)}")
         return {"title": title, "content": content}
