@@ -28,6 +28,7 @@ def log(msg):
 class TextInput(BaseModel):
     text:         str
     systemPrompt: str | None = None
+    detailed:     bool = False
 
 @app.get("/")
 def root():
@@ -36,7 +37,8 @@ def root():
 @app.post("/api/generate-notes-from-text")
 async def generate_notes(data: TextInput):
     text = data.text.strip()
-    log(f"[NOTES] received text_len={len(text)}")
+    detailed = data.detailed
+    log(f"[NOTES] received text_len={len(text)} detailed={detailed}")
 
     if not text or len(text) < 30:
         return {
@@ -48,15 +50,31 @@ async def generate_notes(data: TextInput):
         log("[NOTES] GROQ_API_KEY missing")
         return fallback_notes(text)
 
-    MAX_INPUT_CHARS = 9000
+    # ✅ Detailed mode gets a higher input ceiling (larger scans need more room)
+    MAX_INPUT_CHARS = 16000 if detailed else 9000
     if len(text) > MAX_INPUT_CHARS:
         log(f"[NOTES] truncating input from {len(text)} to {MAX_INPUT_CHARS} chars")
         text = text[:MAX_INPUT_CHARS]
 
     try:
-        word_count   = len(text.split())
-        max_sections = 4 if word_count < 300 else 5 if word_count < 600 else 7
-        bullets_per  = "3-4" if word_count < 300 else "4-5"
+        word_count = len(text.split())
+
+        if detailed:
+            max_sections   = 6 if word_count < 300 else 8 if word_count < 600 else 10
+            bullets_per    = "5-6" if word_count < 300 else "6-7"
+            bullet_min     = 14
+            bullet_max     = 22
+            detailed_note  = (
+                "- DETAILED MODE: cover more secondary details, examples, and sub-points "
+                "in addition to core facts — write fuller explanations while still keeping "
+                "each bullet a single complete thought.\n"
+            )
+        else:
+            max_sections   = 4 if word_count < 300 else 5 if word_count < 600 else 7
+            bullets_per    = "3-4" if word_count < 300 else "4-5"
+            bullet_min     = 9
+            bullet_max     = 13
+            detailed_note  = ""
 
         prompt = f"""You are an expert exam notes generator for students preparing for exams.
 
@@ -84,16 +102,16 @@ PART 2 — Generate CONCISE expert exam-ready notes:
 - {bullets_per} bullets per section MAXIMUM (no repetition, be selective)
 - Aim for AT LEAST 4 sections when the text has enough distinct topics to support it, up to {max_sections} MAXIMUM
 - Do not force 4 sections on very short or single-topic text — only split into more sections if there is genuinely enough distinct content
-- STRICT LENGTH RULE: each bullet must be 9-13 words, NEVER more than 13
+- STRICT LENGTH RULE: each bullet must be {bullet_min}-{bullet_max} words, NEVER more than {bullet_max}
 - CRITICAL: every bullet must be a COMPLETE sentence/thought — NEVER cut off mid-word or mid-phrase
-- If a fact needs more than 13 words to complete, shorten the wording instead of cutting it off — an unfinished bullet is worse than a slightly denser one
+- If a fact needs more than {bullet_max} words to complete, shorten the wording instead of cutting it off — an unfinished bullet is worse than a slightly denser one
 - Do not start a bullet or section you cannot finish within the remaining space — finish EVERY bullet and EVERY section you begin, never leave a trailing incomplete line
 - Write each bullet so it reads as a short, complete, punchy sentence —
   avoid trailing filler words or clauses that spill onto an extra line
 - Do not pad bullets to sound formal — shorter and clearer is always better
 - Prioritize ONLY: core definitions, key formulas, most important facts for exams
 - Always write full definitions — never truncate mid-sentence, but keep them tight
-- If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
+{detailed_note}- If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
 
 Respond in this exact format:
 TITLE: <your title here>
@@ -108,6 +126,8 @@ NOTES:
 Text to convert:
 {text}"""
 
+        max_tokens = 3500 if detailed else 2200
+
         async with httpx.AsyncClient(timeout=45) as client:
             response = await client.post(
                 GROQ_URL,
@@ -118,7 +138,7 @@ Text to convert:
                 json={
                     "model": "openai/gpt-oss-120b",
                     "messages":    [{"role": "user", "content": prompt}],
-                    "max_tokens":  2200,
+                    "max_tokens":  max_tokens,
                     "temperature": 0.2,
                     "reasoning_effort": "low",
                 },
@@ -147,7 +167,7 @@ Text to convert:
                         json={
                             "model": "openai/gpt-oss-120b",
                             "messages":    [{"role": "user", "content": prompt}],
-                            "max_tokens":  2200,
+                            "max_tokens":  max_tokens,
                             "temperature": 0.2,
                         },
                     )
