@@ -50,7 +50,7 @@ async def generate_notes(data: TextInput):
         log("[NOTES] GROQ_API_KEY missing")
         return fallback_notes(text)
 
-    # ✅ Detailed mode gets a higher input ceiling (larger scans need more room)
+    # Detailed mode gets a higher input ceiling (larger scans need more room)
     MAX_INPUT_CHARS = 16000 if detailed else 9000
     if len(text) > MAX_INPUT_CHARS:
         log(f"[NOTES] truncating input from {len(text)} to {MAX_INPUT_CHARS} chars")
@@ -111,7 +111,12 @@ PART 2 — Generate CONCISE expert exam-ready notes:
 - Do not pad bullets to sound formal — shorter and clearer is always better
 - Prioritize ONLY: core definitions, key formulas, most important facts for exams
 - Always write full definitions — never truncate mid-sentence, but keep them tight
-{detailed_note}- If text is random gibberish with no educational value, respond with only: CANNOT_EXTRACT
+{detailed_note}
+IMPORTANT — When to actually refuse (be very reluctant to refuse):
+- This text came from a photo of a real textbook, notebook, or study material scanned by a student. OCR is never perfect — expect occasional garbled words, missing punctuation, odd line breaks, or a few unclear phrases. This is NORMAL and NOT a reason to refuse.
+- If the text is about ANY academic or study subject (science, math, history, language, law, economics, medicine, engineering, etc.) — even if parts of it look imperfect, incomplete, or slightly broken from scanning — you MUST still generate real notes. Use your own subject knowledge to fill gaps and interpret unclear words sensibly.
+- ONLY respond with exactly "CANNOT_EXTRACT" if the underlying subject matter itself is clearly NOT educational at all — e.g. it is obviously from a t-shirt slogan, a product label, a receipt, a street sign, a personal text message, song lyrics with no academic content, or random object text with zero study value.
+- Do NOT respond with CANNOT_EXTRACT just because the text has typos, gaps, or looks like a rough OCR scan. A messy-but-real textbook page is still a valid input and must produce notes.
 
 Respond in this exact format:
 TITLE: <your title here>
