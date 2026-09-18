@@ -40,7 +40,7 @@ async def generate_notes(data: TextInput):
     detailed = data.detailed
     log(f"[NOTES] received text_len={len(text)} detailed={detailed}")
 
-    if not text or len(text) < 30:
+    if not text or len(text) < 15:
         return {
             "title":   "Cannot Extract",
             "content": "• Could not extract meaningful text.\n• Try a clearer image with visible text."
@@ -76,47 +76,48 @@ async def generate_notes(data: TextInput):
             bullet_max     = 13
             detailed_note  = ""
 
-        prompt = f"""You are an expert exam notes generator for students preparing for exams.
+        prompt = f"""You are an expert note-taking assistant that converts any scanned or pasted text into clean, organized, easy-to-study notes.
 
 Your job has TWO parts:
 
 PART 1 — Generate a smart title:
 - Read the ENTIRE text and create a short meaningful title (4-7 words max)
-- Title should describe the MAIN TOPIC, not just copy the first words
-- Example: "Photosynthesis: Light and Dark Reactions"
+- Title should describe the MAIN CONTENT, not just copy the first words
+- Example: "Photosynthesis: Light and Dark Reactions" or "Weekly Class Timetable" or "Team Meeting Action Items"
 
-PART 2 — Generate CONCISE expert exam-ready notes:
+PART 2 — Generate CONCISE, well-organized notes:
 - Read the ENTIRE text carefully from start to finish
-- Do NOT just copy headings or phrases from the book as bullet points
-- Each bullet must be a COMPLETE ANSWER — not a topic name or heading
+- This tool works for ANY real content, not just textbooks — school/class timetables, schedules, meeting notes, recipes, instructions, forms, general topics, articles, personal notes, checklists, plans, and academic material are ALL valid and should all produce clean organized notes
+- Do NOT just copy headings or phrases from the source as bullet points
+- Each bullet must be a COMPLETE, USEFUL PIECE OF INFORMATION — not a bare topic name
 - BAD bullet: "Calculating Variance and Standard Deviation"
 - GOOD bullet: "Variance measures spread from the mean; average of squared differences"
-- Combine what the book says WITH your own expert knowledge for complete exam answers
-- Be concise: only the MOST important facts, formulas, definitions - skip minor details
+- For a timetable/schedule: each bullet should state the actual time/day/subject/event clearly, e.g. "Monday 9-10am: Mathematics with Mr. Khan"
+- For academic content: combine what the source says WITH your own expert knowledge for complete, useful notes
+- Be concise: only the MOST important, useful information — skip filler
 - For math topics: write formulas using plain text only — e.g. "a^2 + b^2 = c^2" NOT "$a^2 + b^2 = c^2$"
 - NEVER use LaTeX syntax — no $ signs, no \\frac, no \\sqrt, no \\cdot, no backslashes
 - Write math naturally: use ^ for powers, / for fractions, sqrt() for roots
-- Group related points under short section headings
-- Section heading format: ALL CAPS, no bullet, e.g. "FORMULA" or "KEY THEOREM"
+- Group related points under short section headings (e.g. days of the week for a timetable, topics for study material, agenda items for meeting notes)
+- Section heading format: ALL CAPS, no bullet, e.g. "FORMULA" or "MONDAY" or "ACTION ITEMS"
 - Each bullet point starts with "• "
 - {bullets_per} bullets per section MAXIMUM (no repetition, be selective)
-- Aim for AT LEAST 4 sections when the text has enough distinct topics to support it, up to {max_sections} MAXIMUM
-- Do not force 4 sections on very short or single-topic text — only split into more sections if there is genuinely enough distinct content
+- Aim for AT LEAST 3-4 sections when the content has enough distinct groups to support it, up to {max_sections} MAXIMUM
+- Do not force multiple sections on very short or single-topic text — only split into more sections if there is genuinely enough distinct content
 - STRICT LENGTH RULE: each bullet must be {bullet_min}-{bullet_max} words, NEVER more than {bullet_max}
 - CRITICAL: every bullet must be a COMPLETE sentence/thought — NEVER cut off mid-word or mid-phrase
 - If a fact needs more than {bullet_max} words to complete, shorten the wording instead of cutting it off — an unfinished bullet is worse than a slightly denser one
 - Do not start a bullet or section you cannot finish within the remaining space — finish EVERY bullet and EVERY section you begin, never leave a trailing incomplete line
-- Write each bullet so it reads as a short, complete, punchy sentence —
-  avoid trailing filler words or clauses that spill onto an extra line
+- Write each bullet so it reads as a short, complete, punchy sentence — avoid trailing filler words or clauses that spill onto an extra line
 - Do not pad bullets to sound formal — shorter and clearer is always better
-- Prioritize ONLY: core definitions, key formulas, most important facts for exams
-- Always write full definitions — never truncate mid-sentence, but keep them tight
+- Always write full information — never truncate mid-sentence, but keep it tight
 {detailed_note}
-IMPORTANT — When to actually refuse (be very reluctant to refuse):
-- This text came from a photo of a real textbook, notebook, or study material scanned by a student. OCR is never perfect — expect occasional garbled words, missing punctuation, odd line breaks, or a few unclear phrases. This is NORMAL and NOT a reason to refuse.
-- If the text is about ANY academic or study subject (science, math, history, language, law, economics, medicine, engineering, etc.) — even if parts of it look imperfect, incomplete, or slightly broken from scanning — you MUST still generate real notes. Use your own subject knowledge to fill gaps and interpret unclear words sensibly.
-- ONLY respond with exactly "CANNOT_EXTRACT" if the underlying subject matter itself is clearly NOT educational at all — e.g. it is obviously from a t-shirt slogan, a product label, a receipt, a street sign, a personal text message, song lyrics with no academic content, or random object text with zero study value.
-- Do NOT respond with CANNOT_EXTRACT just because the text has typos, gaps, or looks like a rough OCR scan. A messy-but-real textbook page is still a valid input and must produce notes.
+IMPORTANT — When to actually refuse (be EXTREMELY reluctant to refuse):
+- This text came from a photo or paste of REAL content a real person is trying to organize — a textbook page, a timetable, handwritten notes, a schedule, a to-do list, an article, meeting notes, or any other genuine written material. OCR is never perfect — expect occasional garbled words, missing punctuation, odd line breaks, or a few unclear phrases. This is NORMAL and NOT a reason to refuse.
+- This tool is NOT limited to academic subjects. Timetables, schedules, plans, lists, instructions, general topics, conversations about a real subject, and any other genuine informational content are ALL valid and must produce real notes.
+- Even if parts of the text look imperfect, incomplete, fragmented, or slightly broken from scanning — you MUST still generate real, organized notes from whatever real content is present. Use your own knowledge to fill small gaps and interpret unclear words sensibly.
+- ONLY respond with exactly "CANNOT_EXTRACT" if the text is truly meaningless — e.g. it is random keyboard mashing, pure gibberish with zero real words, a completely blank/empty extraction, or contains no identifiable real-world information whatsoever.
+- Do NOT respond with CANNOT_EXTRACT just because the content isn't "educational" in a narrow sense, has typos, looks like a rough OCR scan, or is a non-academic document like a timetable, list, or casual note. Any real, organizable content is a valid input.
 
 Respond in this exact format:
 TITLE: <your title here>
@@ -226,7 +227,7 @@ Text to convert:
         if "CANNOT_EXTRACT" in raw_response:
             return {
                 "title":   "Cannot Extract",
-                "content": "• Could not find meaningful educational content.\n• Try a clearer textbook image or paste text directly."
+                "content": "• Could not find meaningful content in this image.\n• Try a clearer photo, or make sure there's readable text visible."
             }
 
         title = "Untitled Note"
