@@ -19,6 +19,11 @@ app.add_middleware(
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
+# Whole scanned/pasted text (trimmed) shorter than this gets the gentle
+# "not enough text" hint in the app instead of notes. Counted in Unicode
+# characters, so Arabic/Urdu/etc. behave the same as English.
+MIN_TEXT_CHARS = 35
+
 
 def log(msg):
     print(msg, flush=True)
@@ -40,10 +45,12 @@ async def generate_notes(data: TextInput):
     detailed = data.detailed
     log(f"[NOTES] received text_len={len(text)} detailed={detailed}")
 
-    if not text or len(text) < 15:
+    if not text or len(text) < MIN_TEXT_CHARS:
+        log(f"[NOTES] too_short text_len={len(text)} (min {MIN_TEXT_CHARS})")
         return {
             "title":   "Cannot Extract",
-            "content": "• Could not extract meaningful text.\n• Try a clearer image with visible text."
+            "content": "• Could not extract meaningful text.\n• Try a clearer image with visible text.",
+            "reason":  "too_short"
         }
 
     if not GROQ_API_KEY:
@@ -60,8 +67,21 @@ async def generate_notes(data: TextInput):
         word_count = len(text.split())
 
         if detailed:
-            max_sections   = 6 if word_count < 300 else 8 if word_count < 600 else 10
-            bullets_per    = "5-6" if word_count < 300 else "6-7"
+            # Depth follows input size. First three rows are the original
+            # behaviour (scans of 1-6 images are unchanged); the last three
+            # are the deeper tiers for big scans.
+            if word_count < 300:
+                max_sections, bullets_per, max_tokens = 6, "5-6", 3500
+            elif word_count < 600:
+                max_sections, bullets_per, max_tokens = 8, "6-7", 3500
+            elif word_count < 1200:
+                max_sections, bullets_per, max_tokens = 10, "6-7", 3500
+            elif word_count < 1800:
+                max_sections, bullets_per, max_tokens = 12, "6-8", 4500
+            elif word_count < 2400:
+                max_sections, bullets_per, max_tokens = 14, "6-8", 5500
+            else:
+                max_sections, bullets_per, max_tokens = 16, "7-8", 6500
             bullet_min     = 14
             bullet_max     = 22
             detailed_note  = (
@@ -69,12 +89,19 @@ async def generate_notes(data: TextInput):
                 "in addition to core facts — write fuller explanations while still keeping "
                 "each bullet a single complete thought.\n"
             )
+            log(f"[NOTES] detailed tier: words={word_count} sections={max_sections} "
+                f"bullets={bullets_per} max_tokens={max_tokens}")
         else:
             max_sections   = 4 if word_count < 300 else 5 if word_count < 600 else 7
             bullets_per    = "3-4" if word_count < 300 else "4-5"
             bullet_min     = 9
             bullet_max     = 13
             detailed_note  = ""
+            max_tokens     = 2200
+
+        # Bigger outputs take longer to generate; give them more time so a
+        # slow response does not silently turn into fallback notes.
+        request_timeout = 45 if max_tokens <= 3500 else 75
 
         prompt = f"""You are an expert note-taking assistant that converts any scanned or pasted text into clean, organized, easy-to-study notes.
 
@@ -112,12 +139,11 @@ PART 2 — Generate CONCISE, well-organized notes:
 - Do not pad bullets to sound formal — shorter and clearer is always better
 - Always write full information — never truncate mid-sentence, but keep it tight
 {detailed_note}
-IMPORTANT — When to actually refuse (be EXTREMELY reluctant to refuse):
+IMPORTANT — Always produce notes:
 - This text came from a photo or paste of REAL content a real person is trying to organize — a textbook page, a timetable, handwritten notes, a schedule, a to-do list, an article, meeting notes, or any other genuine written material. OCR is never perfect — expect occasional garbled words, missing punctuation, odd line breaks, or a few unclear phrases. This is NORMAL and NOT a reason to refuse.
 - This tool is NOT limited to academic subjects. Timetables, schedules, plans, lists, instructions, general topics, conversations about a real subject, and any other genuine informational content are ALL valid and must produce real notes.
 - Even if parts of the text look imperfect, incomplete, fragmented, or slightly broken from scanning — you MUST still generate real, organized notes from whatever real content is present. Use your own knowledge to fill small gaps and interpret unclear words sensibly.
-- ONLY respond with exactly "CANNOT_EXTRACT" if the text is truly meaningless — e.g. it is random keyboard mashing, pure gibberish with zero real words, a completely blank/empty extraction, or contains no identifiable real-world information whatsoever.
-- Do NOT respond with CANNOT_EXTRACT just because the content isn't "educational" in a narrow sense, has typos, looks like a rough OCR scan, or is a non-academic document like a timetable, list, or casual note. Any real, organizable content is a valid input.
+- NEVER refuse and NEVER reply with "CANNOT_EXTRACT" or any refusal message. Short, odd, rough, or non-academic text is all valid. Always answer in the TITLE:/NOTES: format below with the best organized notes you can make from what is there.
 
 Respond in this exact format:
 TITLE: <your title here>
@@ -132,9 +158,7 @@ NOTES:
 Text to convert:
 {text}"""
 
-        max_tokens = 3500 if detailed else 2200
-
-        async with httpx.AsyncClient(timeout=45) as client:
+        async with httpx.AsyncClient(timeout=request_timeout) as client:
             response = await client.post(
                 GROQ_URL,
                 headers={
@@ -163,7 +187,7 @@ Text to convert:
             log(f"[NOTES] Groq API error: {error_msg}")
             if "reasoning_effort" in error_msg:
                 log("[NOTES] retrying without reasoning_effort param")
-                async with httpx.AsyncClient(timeout=45) as client:
+                async with httpx.AsyncClient(timeout=request_timeout) as client:
                     response = await client.post(
                         GROQ_URL,
                         headers={
@@ -225,10 +249,10 @@ Text to convert:
             return fallback_notes(text)
 
         if "CANNOT_EXTRACT" in raw_response:
-            return {
-                "title":   "Cannot Extract",
-                "content": "• Could not find meaningful content in this image.\n• Try a clearer photo, or make sure there's readable text visible."
-            }
+            # Text is at least MIN_TEXT_CHARS long, so a refusal is never
+            # shown to the user: return the basic sentence-split notes.
+            log("[NOTES] Model answered CANNOT_EXTRACT despite no-refusal prompt. Using fallback_notes().")
+            return fallback_notes(text)
 
         title = "Untitled Note"
         if "TITLE:" in raw_response:
