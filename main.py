@@ -24,6 +24,10 @@ GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 # characters, so Arabic/Urdu/etc. behave the same as English.
 MIN_TEXT_CHARS = 35
 
+# Detailed scans with at least this many words get the "long source"
+# instruction (minimum sections + cover everything).
+LONG_SOURCE_WORDS = 1200
+
 
 def log(msg):
     print(msg, flush=True)
@@ -65,6 +69,7 @@ async def generate_notes(data: TextInput):
 
     try:
         word_count = len(text.split())
+        long_source_note = ""
 
         if detailed:
             # Depth follows input size. First three rows are the original
@@ -89,8 +94,22 @@ async def generate_notes(data: TextInput):
                 "in addition to core facts — write fuller explanations while still keeping "
                 "each bullet a single complete thought.\n"
             )
+
+            # Long scans: the model tends to compress a big source into a few
+            # "highlights". Ask for proportional, full coverage instead.
+            if word_count >= LONG_SOURCE_WORDS:
+                min_sections = max(8, round(max_sections * 0.7))
+                long_source_note = (
+                    f"- LONG SOURCE: this text is about {word_count} words, so the notes must be "
+                    f"proportionally full. Use AT LEAST {min_sections} sections (up to {max_sections}) "
+                    f"with {bullets_per} bullets each. Cover EVERY distinct topic, question group, "
+                    "formula, definition and example in the source — do not merge several topics into "
+                    "one bullet, do not squeeze the whole text into a few highlights, and do not stop "
+                    "early. This overrides the guidance above about keeping only the most important points.\n"
+                )
+
             log(f"[NOTES] detailed tier: words={word_count} sections={max_sections} "
-                f"bullets={bullets_per} max_tokens={max_tokens}")
+                f"bullets={bullets_per} max_tokens={max_tokens} long_source={bool(long_source_note)}")
         else:
             max_sections   = 4 if word_count < 300 else 5 if word_count < 600 else 7
             bullets_per    = "3-4" if word_count < 300 else "4-5"
@@ -138,7 +157,7 @@ PART 2 — Generate CONCISE, well-organized notes:
 - Write each bullet so it reads as a short, complete, punchy sentence — avoid trailing filler words or clauses that spill onto an extra line
 - Do not pad bullets to sound formal — shorter and clearer is always better
 - Always write full information — never truncate mid-sentence, but keep it tight
-{detailed_note}
+{detailed_note}{long_source_note}
 IMPORTANT — Always produce notes:
 - This text came from a photo or paste of REAL content a real person is trying to organize — a textbook page, a timetable, handwritten notes, a schedule, a to-do list, an article, meeting notes, or any other genuine written material. OCR is never perfect — expect occasional garbled words, missing punctuation, odd line breaks, or a few unclear phrases. This is NORMAL and NOT a reason to refuse.
 - This tool is NOT limited to academic subjects. Timetables, schedules, plans, lists, instructions, general topics, conversations about a real subject, and any other genuine informational content are ALL valid and must produce real notes.
